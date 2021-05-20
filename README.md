@@ -2,9 +2,9 @@
 
 This project supports the automation of application process for Grew Bancroft Foundation.
 
-## Architecture (ver 0.1)
+## Architecture (ver 0.2)
 
-![Sample Architecture](images/architecture_v01.png)
+![Sample Architecture](images/architecture_v02.png)
 
 # Welcome to your CDK Python project!
 
