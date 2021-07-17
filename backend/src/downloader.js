@@ -21,7 +21,7 @@ const email = process.env.EMAIL
 const password = process.env.PASSWORD
 
 const defaultOptions = {
-  year: new Date().getFullYear().toString()
+  year: (new Date().getFullYear() + 1).toString()
 }
 
 const _selectElement = async (parents, selector) => {
