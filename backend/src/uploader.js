@@ -93,45 +93,18 @@ const setFilter = async (page, options) => {
 This method downloads PDF files to the S3 bucket
 specified by the env var.
 */
-const downloadFiles = async (browser, page, applicantNum) => {
+const downloadFiles = async (browser, page, event) => {
   
   console.log('Downloading files...');
   const cookies = await page.cookies();
   const serializedCookies = cookies.reduce((acc, cur) => (`${acc}${cur.name}=${cur.value}; `), '').trim();
-  
-  // Go through each applicant and click on their name
-  const tableRows = await page.$$('#lstApplicants tbody tr')
-  let theHref = null
-  let theName = null
-  for (const tr of tableRows) {
-    var element = await _selectElement(tr, 'div.user-info a');
-    var href = await element.evaluate(element => element.getAttribute('href'));
-    var num = href.split('/').pop();
-    var name = await element.evaluate(element => element.textContent);
-    if (num == applicantNum) {
-      console.log("Found the applicant!")
-      theHref = href
-      theName = name
-      break
-    }
-  }
+
   const newPage = await browser.newPage();
-  await newPage.goto(`${pageURL}${theHref}`);
-  await _downloadUploadedFiles(newPage, applicantNum, theName, serializedCookies);
-  // await Promise.all(tableRows.map(tr => new Promise(async resolve => {
-  //   // Select and parse applicant info (number (UID) and name)
-  //   const element = await _selectElement(tr, 'div.user-info a');
-  //   const href = await element.evaluate(element => element.getAttribute('href'));
-  //   const applicantNum = href.split('/').pop();
-  //   const applicantName = await element.evaluate(element => element.textContent);
-  //   // Click on the name to start downloading PDF files
-  //   console.log(`Looking into ${applicantName} (${applicantNum})...`)
-  //   const newPage = await browser.newPage();
-  //   await newPage.goto(`https://www.syutsugan.net${href}`);
-  //   console.log(`Going to https://www.syutsugan.net${href}`)
-  //   await _downloadUploadedFiles(newPage, applicantNum, applicantName, serializedCookies);
-  //   resolve();
-  // })));
+  const id = event['id'];
+  const theURL = event['url'];
+  const theName = event['name'];
+  await newPage.goto(theURL);
+  await _downloadUploadedFiles(newPage, id, theName, serializedCookies);
 };
 
 /*
@@ -154,32 +127,33 @@ const _downloadUploadedFiles = async (page, num, name, cookies) => {
     if (downloadButton) {
       console.log("Found the download button!")
       const href = await downloadButton.evaluate(element => element.getAttribute('href'));
-      // The file name must always be one element behind (i - 1) the download link!
-      const originalFileName = await definitionLists[i - 1].$('p.upload_name').then(p => (
-        p.evaluate(element => element.textContent)
-      ));
-      const extension = originalFileName.split('.').pop().trim();
-      // The jth element is trying to fetch the `<span>` tag, which
-      // contains the title (e.g., 小論文１アップロード)
-      let j = i - 2;
-      let title = '';
-      while (j > -1) {
-        const span = await definitionLists[j].$('dd span');
-        if (span) {
-          title = await span.evaluate(span => span.textContent);
-          title = title.trim();
-          title = `${title}.${extension}`;
-          break;
+      // Make sure the file name exists 
+      // TODO: Maybe we should put a placeholder filename and download every downloadable file?
+      const existsFileName = await definitionLists[i - 1].$('p.upload_name');
+      if (existsFileName) {
+        // The file name must always be one element behind (i - 1) the download link!
+        const originalFileName = await existsFileName.evaluate(element => element.textContent);
+        const extension = originalFileName.split('.').pop().trim();
+        // The jth element is trying to fetch the `<span>` tag, which
+        // contains the title (e.g., 小論文１アップロード)
+        let j = i - 2;
+        let title = '';
+        while (j > -1) {
+          const span = await definitionLists[j].$('dd span');
+          if (span) {
+            title = await span.evaluate(span => span.textContent);
+            title = title.trim();
+            title = `${title}.${extension}`;
+            break;
+          }
+          j = j - 1;
         }
-        j = j - 1;
+        const downloadURL = `${pageURL}${href}`
+        targets.push({ downloadURL, title });
       }
-      const downloadURL = `${pageURL}${href}`
-      targets.push({ downloadURL, title });
     }
   }
   
-  console.log("TARGETS")
-  console.log(targets)
   await Promise.all(targets.map(({ downloadURL, title }) => (
     axios.get(downloadURL, {
       headers: {
@@ -213,7 +187,7 @@ for each applicant
 exports.handler = async (event, context) => {
   const { browser, page } = await login()
   await setFilter(page, defaultOptions)
-  await downloadFiles(browser, page, event['applicantNum'])
+  await downloadFiles(browser, page, event)
   
   await page.close()
   await browser.close()

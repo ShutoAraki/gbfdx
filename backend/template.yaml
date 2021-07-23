@@ -8,12 +8,32 @@ Resources:
     Type: AWS::S3::Bucket
 
   # Define the consumer Lambda function and EventBridge rule
-  SnapshotFunction:
+  
+  SelectorFunction:
     Type: AWS::Serverless::Function
     Description: Invoked by EventBridge scheduled rule
     Properties:
       CodeUri: src/
-      Handler: downloader.handler
+      Handler: applicantSelector.handler
+      Runtime: nodejs12.x
+      Timeout: 300
+      MemorySize: 4096
+      Layers:
+        - !Sub 'arn:aws:lambda:${AWS::Region}:764866452798:layer:chrome-aws-lambda:22'
+      Environment:
+        Variables:
+          TARGET_URL: 'https://www.syutsugan.net'
+          S3_BUCKET: !Ref S3Bucket
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UploaderFunction
+  
+  UploaderFunction:
+    Type: AWS::Serverless::Function
+    Description: Invoked by EventBridge scheduled rule
+    Properties:
+      CodeUri: src/
+      Handler: uploader.handler
       Runtime: nodejs12.x
       Timeout: 300
       MemorySize: 4096
@@ -27,13 +47,12 @@ Resources:
         - S3WritePolicy:
             BucketName: !Ref S3Bucket
 
-      Events:
-        CheckWebsiteScheduledEvent:
-          Type: Schedule
-          Properties:
-            Schedule: rate(1 hour)
-
 Outputs:
-  ConsumerFunction:
-    Description: SnapshotFunction function name
-    Value: !Ref SnapshotFunction
+  SelectorFunction:
+    Description: Lambda function that fetches applicant IDs
+    Value: !Ref SelectorFunction
+  UploaderFunction:
+    Description: Lambda function that uploads PDFs to S3 from a given applicant ID
+    Value: !Ref UploaderFunction
+  S3Bucket:
+    Value: !Ref S3Bucket
