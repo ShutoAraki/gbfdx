@@ -122,7 +122,7 @@ exports.handler = async (event, context) => {
   const { browser, page } = await login()
   await setFilter(page, defaultOptions)
   const body = await getBody(page)
-  const uploadFunction = 'scheduled-web-scraping-UploaderFunction-yVe4PZs6DE36'
+  const uploadFunction = process.env.CHILD_LAMBDA
   
   body.map(request => {
     var params = {

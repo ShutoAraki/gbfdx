@@ -24,6 +24,7 @@ Resources:
         Variables:
           TARGET_URL: 'https://www.syutsugan.net'
           S3_BUCKET: !Ref S3Bucket
+          CHILD_LAMBDA: !Ref UploaderFunction
       Policies:
         - LambdaInvokePolicy:
             FunctionName: !Ref UploaderFunction
